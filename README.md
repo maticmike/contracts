@@ -1,5 +1,7 @@
 # Matic Mike Club
 
+[https://maticmike.club](https://maticmike.club)
+
 The Matic Mike NFT is a 100% on-chain project built on the Polygon <-> Ethereum networks introducing more gaming functionality into the NFT space. We've started with 5 contracts, 3 on Polygon (Matic Mike NFT, $HGH Coin, and the MaticMikeData contract) and 2 on ethereum (NFT Bridge and ERC20 Bridge).
 
 ## In this repository
@@ -7,6 +9,8 @@ The Matic Mike NFT is a 100% on-chain project built on the Polygon <-> Ethereum 
 This repository contains a 3 folders for the initial contracts launched, and will contain all contracts in the Matic Mike family including the PvP contract coming soon and the Expansion and Child projects coming in November/December.
 
 ## Introducing Dance Royale - The PvP Battle Royale
+
+[https://maticmike.club/royale/](https://maticmike.club/royale/)
 
 Utilize your Matic Mike NFT & dance your way to victory earning and burning plenty of $HGH along the way. The Dance Royale contract is the newest addition to the matic mike family. It makes heavy utilization of Chainlink and provides plenty of analytics integrated within the contract for our users to enjoy. A rolling queue system, the Dance Royale allows up to 50 people to join with 1 $HGH and the ability to add additional power level to their Matic Mike by injecting with up to 5 $HGH. The winner received 70% of hte pot, 2nd place 20% and third 10%. No $HGH is pocketed, any "juiced up" $HGH is burned.
 
