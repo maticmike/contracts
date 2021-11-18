@@ -140,6 +140,18 @@ library MaticMikeLibrary {
         return string(result);
     }
 
+    function getPercent(uint part, uint whole) internal pure returns(uint percent) {
+        uint numerator = part * 1000;
+        if(numerator > part && numerator > whole){
+            uint temp = numerator / whole;
+            return temp / 10;
+        }
+        else{
+            return 0;
+        }
+        
+    }
+
     function isContract(address account) internal view returns (bool) {
         // This method relies on extcodesize, which returns 0 for contracts in
         // construction, since the code is only stored at the end of the

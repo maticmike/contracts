@@ -6,6 +6,7 @@ pragma solidity ^0.8.0;
 import "./library/MaticMikeLibrary.sol";
 import "./interface/IMikeExtended.sol";
 import "./interface/IMaticMike.sol";
+import "./interface/IDanceOff.sol";
 
 contract MaticMikeData{
     // Trait structure
@@ -58,6 +59,8 @@ contract MaticMikeData{
     address _owner;
     address nullAddress = 0x0000000000000000000000000000000000000000;
     address mmAddress;
+    address danceoffAddress;
+
     constructor(){
         _owner = msg.sender;
     }
@@ -146,6 +149,8 @@ contract MaticMikeData{
         string memory metadataString;
 
         _hash = _tokenIdToHash(_hash, _tokenId);
+        uint16 pl;
+        
 
         for (uint8 i = 0; i < 9; i++) {
             uint8 thisTraitIndex = MaticMikeLibrary.parseInt(
@@ -163,10 +168,13 @@ contract MaticMikeData{
                 )
             );
 
+            pl = pl + traitTypes[i][thisTraitIndex].powerLevel;
+
             if (i != 8)
                 metadataString = string(abi.encodePacked(metadataString, ","));
         }
 
+        
         // external contract call for expansion loot & graphics
         if(xxlAddress != nullAddress){
             IMikeExtended.Traits[] memory XxlTraits = IMikeExtended(xxlAddress).getAllPlayerLoot(_tokenId);
@@ -175,18 +183,78 @@ contract MaticMikeData{
                 if(XxlTraits[i].valid){
                     metadataString = string(abi.encodePacked(metadataString, ","));
 
-                    metadataString = string(
+                    if(keccak256(abi.encodePacked(XxlTraits[i].displayType)) == keccak256(abi.encodePacked("string"))){
+                        metadataString = string(
                         abi.encodePacked(
-                            metadataString,
-                            '{"trait_type":"',
-                            XxlTraits[i].traitType,
-                            '","value":"',
-                            XxlTraits[i].traitName,
-                            '"}'
-                        )
-                    );
+                                metadataString,
+                                '{"trait_type":"',
+                                XxlTraits[i].traitType,
+                                '","value":',
+                                XxlTraits[i].traitName,
+                                '}'
+                            )
+                        );
+                    }
+                    else{
+                        metadataString = string(
+                        abi.encodePacked(
+                                metadataString,
+                                '{"display_type":"', 
+                                XxlTraits[i].displayType, 
+                                '","trait_type":"',
+                                XxlTraits[i].traitType,
+                                '","value":',
+                                XxlTraits[i].traitName,
+                                '}'
+                            )
+                        );
+                    }
+
+                    pl = pl + XxlTraits[i].powerLevel;
                 }
             }
+        }
+        
+        metadataString = string(abi.encodePacked(metadataString, ","));
+        metadataString = string(
+            abi.encodePacked(
+                metadataString,
+                '{"trait_type":"Power Level","value":',
+                MaticMikeLibrary.toString(pl),
+                '}'
+            )
+        );
+
+        // Dance Off Stats
+        if(danceoffAddress != nullAddress){
+            uint256 entered;
+            uint256 placed;
+
+            IDanceOff.Winner[] memory Winners = IDanceOff(danceoffAddress).getPlacementsByToken(_tokenId);
+            entered = IDanceOff(danceoffAddress).getRumblesEntered(_tokenId).length;
+
+            if(entered > 0 && Winners.length > 0){
+                placed = MaticMikeLibrary.getPercent(Winners.length, entered);
+            }
+            metadataString = string(abi.encodePacked(metadataString, ","));
+            metadataString = string(
+                abi.encodePacked(
+                    metadataString,
+                    '{"display_type":"number","trait_type":"Dance Royales Entered","value":',
+                    MaticMikeLibrary.toString(entered),
+                    '}'
+                )
+            );
+            metadataString = string(abi.encodePacked(metadataString, ","));
+            metadataString = string(
+                abi.encodePacked(
+                    metadataString,
+                    '{"trait_type":"Placement","value":"',
+                    MaticMikeLibrary.toString(placed),
+                    '%"',
+                    '}'
+                )
+            );
         }
 
         return string(abi.encodePacked("[", metadataString, "]"));
@@ -350,11 +418,17 @@ contract MaticMikeData{
 
         return;
     }
+    
     function setMmAddress(address _address) public onlyOwner{
         mmAddress = _address;
     }
+    
     function setXxlAddress(address _address) public onlyOwner{
         xxlAddress = _address;
+    }
+
+    function setDanceOffAddress(address _address) public onlyOwner{
+        danceoffAddress = _address;
     }
 
     /**
