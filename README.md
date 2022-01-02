@@ -8,6 +8,12 @@ The Matic Mike NFT is a 100% on-chain project built on the Polygon <-> Ethereum 
 
 This repository contains a 3 folders for the initial contracts launched, and will contain all contracts in the Matic Mike family including the PvP contract coming soon and the Expansion and Child projects coming in November/December.
 
+## Summoning of the Evil Club Lords - Mike's Evil Nemesis
+
+[https://maticmike.club/summon/](https://maticmike.club/summon/)
+
+Send Mike to the club to start the summoning process of the Evil Club Lord. Technically, you are staking an ERC721 into a new ERC721, and injecting it with an ERC20 ($HGH) to speed up the process of commits, as well as burn rerolls. Address for contract listed below. there is a limit of 2 Evil Club Lords for every 1 Matic Mike, with a total circulating supply of 2637*2, and a cap after burn rerolls of 2637*2*10.
+
 ## Introducing Dance Royale - The PvP Battle Royale
 
 [https://maticmike.club/royale/](https://maticmike.club/royale/)
@@ -16,6 +22,8 @@ Utilize your Matic Mike NFT & dance your way to victory earning and burning plen
 
 ## Contract Addresses
 
+- ERC721 ECL
+    - Polygon: 0x49CC23D0B5F61002c2844D0E3D96A8eAe71e3604
 - ERC721 MIKE
     - Polygon: 0x7C09194d33686e9B4Dda51A5221340f484919446
     - Ethereum: 0x9cfc5c2721d4534c8712ee4f03443a8b4fca7f29
