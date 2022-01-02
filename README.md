@@ -12,7 +12,7 @@ This repository contains a 3 folders for the initial contracts launched, and wil
 
 [https://maticmike.club/summon/](https://maticmike.club/summon/)
 
-Send Mike to the club to start the summoning process of the Evil Club Lord. Technically, you are staking an ERC721 into a new ERC721, and injecting it with an ERC20 ($HGH) to speed up the process of commits, as well as burn rerolls. Address for contract listed below. there is a limit of 2 Evil Club Lords for every 1 Matic Mike, with a total circulating supply of 2637*2, and a cap after burn rerolls of 2637*2*10.
+Send Mike to the club to start the summoning process of the Evil Club Lord. Technically, you are staking an ERC721 into a new ERC721, and injecting it with an ERC20 ($HGH) to speed up the process of commits, as well as burn rerolls. Address for contract listed below. there is a limit of 2 Evil Club Lords for every 1 Matic Mike, with a total circulating supply of 5274, and a cap after burn rerolls of 52740.
 
 ## Introducing Dance Royale - The PvP Battle Royale
 
