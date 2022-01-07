@@ -129,14 +129,14 @@ contract DanceOff is VRFConsumerBase, Ownable{
     /**
      * @dev Set time trigger to start from this point
      */
-    function setTimeTriggerNow() public onlyOwner{
+    function setTimeTriggerNow() external onlyOwner{
         royaleTimeTrigger[_rumbleId.current()] = block.timestamp;
     }
 
     /**
      * @dev Set contract active
      */
-    function setActive(bool _active) public onlyOwner{
+    function setActive(bool _active) external onlyOwner{
         active = _active;
     }
 
@@ -146,7 +146,7 @@ contract DanceOff is VRFConsumerBase, Ownable{
      * @param _mmAddress Matic Mike address
      * @param _eclAddress Evil Club Lords address
      */
-    function setAddress(address _hghAddress, address _mmAddress, address _eclAddress) public onlyOwner{
+    function setAddress(address _hghAddress, address _mmAddress, address _eclAddress) external onlyOwner{
         hghAddress = _hghAddress;
         mmAddress = _mmAddress;
         eclAddress = _eclAddress;
@@ -156,7 +156,7 @@ contract DanceOff is VRFConsumerBase, Ownable{
      * @dev Set price for entry, goes directly to pot
      * @param _price price in wei
      */
-    function setPrice(uint256 _price) public onlyOwner{
+    function setPrice(uint256 _price) external onlyOwner{
         currentPrice = _price;
     }
 
@@ -164,7 +164,7 @@ contract DanceOff is VRFConsumerBase, Ownable{
      * @dev Set rumble size
      * @param _size total amount of entries to rumble
      */
-    function setRumbleSize(uint8 _size) public onlyOwner{
+    function setRumbleSize(uint8 _size) external onlyOwner{
         rumbleSize = _size;
     }
 
@@ -172,7 +172,7 @@ contract DanceOff is VRFConsumerBase, Ownable{
      * @dev Set minimum size
      * @param _size minimum required for rumble to start
      */
-    function setMinSize(uint8 _size) public onlyOwner{
+    function setMinSize(uint8 _size) external onlyOwner{
         minimumSize = _size;
     }
 
@@ -180,14 +180,14 @@ contract DanceOff is VRFConsumerBase, Ownable{
      * @dev Set minimum size
      * @param _time time before rumble lowers max queue size to min
      */
-    function setMaxTime(uint256 _time) public onlyOwner{
+    function setMaxTime(uint256 _time) external onlyOwner{
         maxTime = _time;
     }
 
     /**
      * @dev failsafe to pull out hgh and send back to users
      */
-    function withdrawHghIfStuck() public onlyOwner{
+    function withdrawHghIfStuck() external onlyOwner{
         uint256 balance = IHgh(hghAddress).balanceOf(address(this));
         IHgh(hghAddress).transfer(msg.sender, balance);
     }
@@ -196,7 +196,7 @@ contract DanceOff is VRFConsumerBase, Ownable{
      * @dev If VRF fails due to gas we can force start queue
      * @param rumbleId ID for the rumble
      */
-    function forceStart(uint256 rumbleId) public onlyOwner{
+    function forceStart(uint256 rumbleId) external onlyOwner{
 
         uint256 _seed = uint256(
             keccak256(
@@ -383,7 +383,6 @@ contract DanceOff is VRFConsumerBase, Ownable{
      */
     function enterRoyale(uint256 _tokenId, address _address, uint8 _hghJuice) public returns (uint256){
         require(active, "Dance Royale not currently active");
-        require((_hghJuice * wagerMulti) % wagerMulti == 0, "HGH Amount cannot be a decimal");
         require(_hghJuice <= maxJuice, "Over the maximum juice amount");
         require(IHgh(hghAddress).balanceOf(msg.sender) >= (_hghJuice * wagerMulti) + currentPrice, "Not enough HGH in wallet balance");
         require(addressToAllowed[_address], "This is not an allowed contract");
@@ -409,6 +408,7 @@ contract DanceOff is VRFConsumerBase, Ownable{
             populateWinners(_rumbleId.current() - 1);
         }
 
+        // The following order of operations prevents reentrancy from draining contract
         // burn the juiced up amount
         IHgh(hghAddress).burnFrom(msg.sender, _hghJuice * wagerMulti);
 
@@ -522,12 +522,16 @@ contract DanceOff is VRFConsumerBase, Ownable{
     function beginDance(uint256 rumbleId, uint256 entropy) internal{
         require(!battleIsComplete[rumbleId], "Battle already completed");
 
+        // aka battle is started
+        battleIsComplete[rumbleId] = true;
+
         RollInfo memory fpRoll;
         RollInfo memory spRoll;
         RollInfo memory tpRoll;
 
         uint256 roll;
-        // we should sort all the entries and create an array of structs from lowest to highest
+
+        // begin calculations of rolls and set first - third place
         for(uint16 i=0; i<rumbleIdToRolls[rumbleId].length; i++){
             roll = uint256(
                     keccak256(
@@ -631,8 +635,6 @@ contract DanceOff is VRFConsumerBase, Ownable{
         );
 
         // increase rumbleid
-        battleIsComplete[rumbleId] = true;
-
         _rumbleId.increment();
         royaleTimeTrigger[_rumbleId.current()] = block.timestamp;
         

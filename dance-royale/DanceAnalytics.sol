@@ -137,6 +137,61 @@ contract DanceAnalytics is Ownable{
     }
 
     /**
+    * @dev Get all wins grouped by danceoff contract address for easy front-end display
+    * @param _tokenId is the token info being pulled and compiled
+    * @param _caller is the token contract address
+    */
+    function getPlacementsGrouped(uint256 _tokenId, address _caller) public view returns(WinnerGroup[] memory){
+        IDanceOffLegacy.Winner[] memory WinnersLegacy;
+        WinnerGroup[] memory WinnerContainer = new WinnerGroup[](danceoffAddresses.length+1);
+
+        uint256 index = 0;
+
+        address caller;
+
+        if(_caller == mmAddress){
+            caller = mmAddress;
+            WinnersLegacy = IDanceOffLegacy(danceoffLegacy).getPlacementsByToken(_tokenId);
+            
+            IDanceOff.Winner[] memory WinnerReturn = new IDanceOff.Winner[](WinnersLegacy.length);
+            if(WinnersLegacy.length > 0){
+                for(uint256 i=0; i<WinnersLegacy.length; i++){
+                    WinnerReturn[i] = IDanceOff.Winner(
+                        WinnersLegacy[i].tokenId,
+                        mmAddress,
+                        WinnersLegacy[i].placement,
+                        WinnersLegacy[i].rumbleId,
+                        WinnersLegacy[i].payout,
+                        WinnersLegacy[i].holder
+                    );
+                }
+            }
+
+            WinnerContainer[index] = WinnerGroup(
+                danceoffLegacy,
+                WinnerReturn
+            );
+            
+            index++;
+        }
+        else if(_caller == eclAddress){
+            caller = eclAddress;
+        }
+
+        for(uint8 i=0; i<danceoffAddresses.length; i++){
+            IDanceOff.Winner[] memory WinnersNew = IDanceOff(danceoffAddresses[i]).getPlacementsByToken(_tokenId, caller);
+            WinnerContainer[index] = WinnerGroup(
+                danceoffAddresses[i],
+                WinnersNew
+            );
+            
+            index++;
+        }
+
+        return WinnerContainer;
+    }
+
+    /**
     * @dev call for data contracts to pull info for metadata
     * @param _tokenId is the token info being pulled and compiled
     * @param _caller is the token contract address
@@ -192,6 +247,63 @@ contract DanceAnalytics is Ownable{
         }
 
         return WinnerReturn;
+    }
+
+    /**
+    * @dev get dynamic contract placements
+    * @param _contract contract of the royale
+    * @param _tokenId is the token info being pulled and compiled
+    * @param _caller is the token contract address
+    */
+    function getPlacementsByContract(address _contract, uint256 _tokenId, address _caller) public view returns(IDanceOff.Winner[] memory){
+        if(_contract == hghroyale){
+            IDanceOffLegacy.Winner[] memory WinnersLegacy;
+
+            uint256 index = 0;
+            uint256 returnSize = 0;
+
+            address caller;
+
+            if(_caller == mmAddress){
+                caller = mmAddress;
+                WinnersLegacy = IDanceOffLegacy(danceoffLegacy).getPlacementsByToken(_tokenId);
+                returnSize += WinnersLegacy.length;
+            }
+            else if(_caller == eclAddress){
+                caller = eclAddress;
+            }
+
+            IDanceOff.Winner[] memory WinnersNew = IDanceOff(hghroyale).getPlacementsByToken(_tokenId, caller);
+            
+            returnSize += WinnersNew.length;
+
+            IDanceOff.Winner[] memory WinnerReturn = new IDanceOff.Winner[](returnSize);
+            if(WinnersLegacy.length > 0){
+                for(uint256 i=0; i<WinnersLegacy.length; i++){
+                    WinnerReturn[index] = IDanceOff.Winner(
+                        WinnersLegacy[i].tokenId,
+                        mmAddress,
+                        WinnersLegacy[i].placement,
+                        WinnersLegacy[i].rumbleId,
+                        WinnersLegacy[i].payout,
+                        WinnersLegacy[i].holder
+                    );
+                    index++;
+                }
+            }
+
+            for(uint256 i=0; i<WinnersNew.length; i++){
+                WinnerReturn[index] = WinnersNew[i];
+                index++;
+            }
+
+            return WinnerReturn;
+        }
+        else{
+            IDanceOff.Winner[] memory WinnersNew = IDanceOff(wethroyale).getPlacementsByToken(_tokenId, _caller);
+
+            return WinnersNew;
+        }
     }
 
     /**
