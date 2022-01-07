@@ -12,8 +12,6 @@ import "./interface/IECL.sol";
 contract DanceOff is VRFConsumerBase, Ownable{
     using Counters for Counters.Counter;
     Counters.Counter private _rumbleId;
-    Counters.Counter private _pvpId;
-    Counters.Counter private _challengeId;
 
     struct RollInfo{
         uint256 tokenId;
@@ -72,10 +70,10 @@ contract DanceOff is VRFConsumerBase, Ownable{
     mapping(address => bool) private addressHasPowerlevel;
 
     // add address
+    // token -> token's contract -> rumble id
     mapping(uint256 => mapping(address => mapping(uint256 => bool))) private tokenToRumble;
     
     // analytical stuff
-    // need to add addresses to all these to account for ECL
     mapping(uint256 => mapping(address => uint256[])) tokenToRumblesEntered;
     mapping(uint256 => mapping(address => Winner[])) tokenToWinner;
     mapping(uint256 => Participants[]) rumbleIdParticipants;
@@ -219,7 +217,7 @@ contract DanceOff is VRFConsumerBase, Ownable{
      * @dev If link fee ever increases we can set it here
      * @param _fee chainlink fee for vrf
      */
-    function setLinkFee(uint256 _fee) public onlyOwner{
+    function setLinkFee(uint256 _fee) external onlyOwner{
         fee = _fee;
     }
 
@@ -227,7 +225,7 @@ contract DanceOff is VRFConsumerBase, Ownable{
      * @dev If link fee ever increases we can set it here
      * @param _maxJuice max additional HGH entries can add to increase powerlevel
      */
-    function setMaxJuice(uint8 _maxJuice)public onlyOwner{
+    function setMaxJuice(uint8 _maxJuice) external onlyOwner{
         maxJuice = _maxJuice;
     }
 
@@ -237,15 +235,15 @@ contract DanceOff is VRFConsumerBase, Ownable{
      * @param _allow true or false
      * @param _hasPowerLevel For ERC721 contracts that are not part of the MM family, we can set false.
      */
-    function setAllowedContract(address _address, bool _allow, bool _hasPowerLevel) public onlyOwner{
+    function setAllowedContract(address _address, bool _allow, bool _hasPowerLevel) external onlyOwner{
         addressToAllowed[_address] = _allow;
         addressHasPowerlevel[_address] = _hasPowerLevel;
     }
 
     // end owner functions
 
-    // // analytical stuff
-
+    // Read functions
+    
     /**
      * @dev Get max juice
      */
