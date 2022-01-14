@@ -49,11 +49,11 @@ contract DanceOff is VRFConsumerBase, Ownable{
         uint256 tokenId;
         address _contract;
     }
-
-    Participants[] public firstPlacements;
-    Participants[] public secondPlacements;
-    Participants[] public thirdPlacements;
-    Participants[] public noPlacements;
+    
+    // chainlink maps for triggering dance
+    mapping(bytes32 => bool) private rumbleTriggerCallback;
+    mapping(bytes32 => uint256) private rumbleTriggerId;
+    mapping(uint256 => bool) private rumbleHasStarted;
 
     // Track participants
     mapping(uint256 => RollInfo[]) private rumbleIdToRolls;
@@ -70,10 +70,10 @@ contract DanceOff is VRFConsumerBase, Ownable{
     mapping(address => bool) private addressHasPowerlevel;
 
     // add address
-    // token -> token's contract -> rumble id
     mapping(uint256 => mapping(address => mapping(uint256 => bool))) private tokenToRumble;
     
-    // analytical stuff
+    // analytical and tracking entries
+    // token id -> address of tokens contract -> rumble ids entered
     mapping(uint256 => mapping(address => uint256[])) tokenToRumblesEntered;
     mapping(uint256 => mapping(address => Winner[])) tokenToWinner;
     mapping(uint256 => Participants[]) rumbleIdParticipants;
@@ -81,13 +81,14 @@ contract DanceOff is VRFConsumerBase, Ownable{
     mapping(address => Winner[]) addressToWinner;
     mapping(address => uint256[]) addressToRumblesEntered;
 
-    // Pricing 
+    // Pricing
     uint256 wagerMulti = 1000000000000000000;
-    uint256 currentPrice = 1000000000000000000;
+    uint256 currentPrice = 1000000000000000;
     uint8 rumbleSize = 50;
     uint8 minimumSize = 15;
     uint256 maxTime = 3600; // 1 hour trigger
-    uint8 maxJuice = 5;
+    uint8 maxJuice = 7;
+    uint8 royalties = 20; // denominator 1/20 = 5%
 
     uint256 SEED_NONCE = 0;
 
@@ -95,6 +96,8 @@ contract DanceOff is VRFConsumerBase, Ownable{
     address hghAddress;
     address mmAddress;
     address eclAddress;
+    address tokenAddress;
+    address link = 0x326C977E6efc84E512bB9C30f76E30c160eD06FB;
 
     bytes32 private keyHash;
     uint256 private fee;
@@ -114,10 +117,10 @@ contract DanceOff is VRFConsumerBase, Ownable{
     // Fee	0.0001 LINK
 
     constructor() 
-        VRFConsumerBase(0x8C7382F9D8f56b33781fE506E897a4F1e2d17255, 0x326C977E6efc84E512bB9C30f76E30c160eD06FB)
+        VRFConsumerBase(0x3d2341ADb2D31f1c5530cDC622016af293177AE0, 0xb0897686c545045aFc77CF20eC7A532E3120E0F1)
     {
         // Chainlink Info
-        keyHash = 0x6e75b569a01ef56d18cab6a8e71e6600d6ce853834d4a5748b720d06f878b3a4;
+        keyHash = 0xf86195cf7690c55907b2b611ebb7343a6f649bff128701cc542f0569e2c549da;
         fee = 0.0001 * 10 ** 18; // 0.0001 LINK
         royaleTimeTrigger[_rumbleId.current()] = block.timestamp;
     }
@@ -150,6 +153,10 @@ contract DanceOff is VRFConsumerBase, Ownable{
         eclAddress = _eclAddress;
     }
 
+    function setTokenAddress(address _address) external onlyOwner{
+        tokenAddress = _address;
+    }
+
     /**
      * @dev Set price for entry, goes directly to pot
      * @param _price price in wei
@@ -175,7 +182,7 @@ contract DanceOff is VRFConsumerBase, Ownable{
     }
 
     /**
-     * @dev Set minimum size
+     * @dev Set max time
      * @param _time time before rumble lowers max queue size to min
      */
     function setMaxTime(uint256 _time) external onlyOwner{
@@ -183,11 +190,27 @@ contract DanceOff is VRFConsumerBase, Ownable{
     }
 
     /**
-     * @dev failsafe to pull out hgh and send back to users
+     * @dev Set royalties denominator
+     * @param _royalties royalties denominator
      */
-    function withdrawHghIfStuck() external onlyOwner{
-        uint256 balance = IHgh(hghAddress).balanceOf(address(this));
-        IHgh(hghAddress).transfer(msg.sender, balance);
+    function setRoyalties(uint8 _royalties) external onlyOwner{
+        royalties = _royalties;
+    }
+
+    /**
+     * @dev failsafe to pull out token and send back to users
+     */
+    function withdrawBalance() external onlyOwner{
+        uint256 balance = IERC20(tokenAddress).balanceOf(address(this));
+        IERC20(tokenAddress).transfer(msg.sender, balance);
+    }
+
+    /**
+     * @dev withdraw link if contract migration
+     */
+    function withdrawLink() external onlyOwner{
+        uint256 balance = IERC20(link).balanceOf(address(this));
+        IERC20(link).transfer(msg.sender, balance);
     }
 
     /**
@@ -242,8 +265,6 @@ contract DanceOff is VRFConsumerBase, Ownable{
 
     // end owner functions
 
-    // Read functions
-    
     /**
      * @dev Get max juice
      */
@@ -350,27 +371,6 @@ contract DanceOff is VRFConsumerBase, Ownable{
         return rumbleIdParticipants[rumbleId];
     }
 
-    /**
-     * @dev Get first places
-     */
-    function getFirstPlace() public view returns (Participants[] memory){
-        return firstPlacements;
-    }
-
-    /**
-     * @dev Get second places
-     */
-    function getSecondPlace() public view returns (Participants[] memory){
-        return secondPlacements;
-    }
-
-    /**
-     * @dev Get third places
-     */
-    function getThirdPlace() public view returns (Participants[] memory){
-        return thirdPlacements;
-    }
-
     // The Battle Royale Functions
 
     /**
@@ -382,7 +382,8 @@ contract DanceOff is VRFConsumerBase, Ownable{
     function enterRoyale(uint256 _tokenId, address _address, uint8 _hghJuice) public returns (uint256){
         require(active, "Dance Royale not currently active");
         require(_hghJuice <= maxJuice, "Over the maximum juice amount");
-        require(IHgh(hghAddress).balanceOf(msg.sender) >= (_hghJuice * wagerMulti) + currentPrice, "Not enough HGH in wallet balance");
+        require(IHgh(hghAddress).balanceOf(msg.sender) >= (_hghJuice * wagerMulti), "Not enough HGH in wallet balance");
+        require(IERC20(tokenAddress).balanceOf(msg.sender) >= currentPrice, "Not enough ERC20 in wallet balance");
         require(addressToAllowed[_address], "This is not an allowed contract");
 
         // check in gym & club as well 
@@ -390,6 +391,7 @@ contract DanceOff is VRFConsumerBase, Ownable{
             require(IMaticMike(mmAddress).ownerOf(_tokenId) == msg.sender || IHgh(hghAddress).getStaker(_tokenId) == msg.sender || IECL(eclAddress).getStaker(uint16(_tokenId)) == msg.sender, "Not the owner of token");
         }
         else{
+            // this will need to change for external contracts that use their own staking contract
             require(IECL(_address).ownerOf(_tokenId) == msg.sender || IHgh(hghAddress).expansionGetStaker(_address, _tokenId) == msg.sender, "Not the owner of this token");
             if(_address == eclAddress){
                 require(IECL(_address).getHoursToReveal(_tokenId) == 0, "Not revealed, cannot enter royale until revealed");
@@ -397,6 +399,7 @@ contract DanceOff is VRFConsumerBase, Ownable{
         }
         
         require(royaleParticipants[_rumbleId.current()] < rumbleSize && !battleIsComplete[_rumbleId.current()], "Royale trigger currently in progress. Try again in a minute");
+        require(!rumbleHasStarted[_rumbleId.current()], 'Royale has already started, try again in a minute');
         
         // require that they are not already entered in the competition...
         require(!tokenToRumble[_tokenId][_address][_rumbleId.current()], "Already entered in competition");
@@ -406,16 +409,15 @@ contract DanceOff is VRFConsumerBase, Ownable{
             populateWinners(_rumbleId.current() - 1);
         }
 
-        // The following order of operations prevents reentrancy from draining contract
         // burn the juiced up amount
         IHgh(hghAddress).burnFrom(msg.sender, _hghJuice * wagerMulti);
 
-        // transfer HGH to contract
-        IHgh(hghAddress).transferFrom(msg.sender, address(this), currentPrice);
+        // transfer WETH to contract
+        IERC20(tokenAddress).transferFrom(msg.sender, address(this), currentPrice);
 
         // begin royale entry
         royaleParticipants[_rumbleId.current()]++;
-        royalePot[_rumbleId.current()] = royalePot[_rumbleId.current()] + wagerMulti;
+        royalePot[_rumbleId.current()] = royalePot[_rumbleId.current()] + currentPrice;
         tokenToRumble[_tokenId][_address][_rumbleId.current()] = true;
         
         bytes32 requestId = requestRandomness(keyHash, fee);
@@ -446,68 +448,81 @@ contract DanceOff is VRFConsumerBase, Ownable{
      * @param randomness the seed passed by chainlink
      */
     function fulfillRandomness(bytes32 requestId, uint256 randomness) internal override {
-        uint256 rumbleId = responseIdToBattle[requestId].battleId;
-        uint256 powerup = 0;
-
-        if(responseIdToBattle[requestId].juicedUp > 0){
-            powerup = (randomness % (responseIdToBattle[requestId].juicedUp * 9)) + responseIdToBattle[requestId].juicedUp;
-        }
-
-        uint powerlevel;
-        address tokenHolder;
-        address curHolder;
-
-        if(responseIdToBattle[requestId]._contract == mmAddress){
-            powerlevel = IMaticMike(mmAddress).getPowerLevel(responseIdToBattle[requestId].tokenId) + powerup;
-
-            curHolder = IMaticMike(mmAddress).ownerOf(responseIdToBattle[requestId].tokenId);
-            // check if in gym and assign accordingly
-            if(curHolder != hghAddress && curHolder!= eclAddress){
-                tokenHolder = curHolder;
-            }
-            else if(curHolder == hghAddress){
-                tokenHolder = IHgh(hghAddress).getStaker(responseIdToBattle[requestId].tokenId);
-            }
-            else if(curHolder == eclAddress){
-                tokenHolder = IECL(eclAddress).getStaker(uint16(responseIdToBattle[requestId].tokenId));
-            }
-            
-        }
-        else if(addressHasPowerlevel[responseIdToBattle[requestId]._contract]){
-            powerlevel = IECL(responseIdToBattle[requestId]._contract).getPowerLevel(responseIdToBattle[requestId].tokenId) + powerup;
-
-            curHolder = IECL(responseIdToBattle[requestId]._contract).ownerOf(responseIdToBattle[requestId].tokenId);
-            // check if in gym and assign accordingly
-            if(curHolder != hghAddress){
-                tokenHolder = curHolder;
-            }
-            else if(curHolder == hghAddress){
-                tokenHolder = IHgh(hghAddress).expansionGetStaker(responseIdToBattle[requestId]._contract, responseIdToBattle[requestId].tokenId);
-            }
+        if(rumbleTriggerCallback[requestId]){
+            beginDance(rumbleTriggerId[requestId], randomness % 10000);
         }
         else{
-            tokenHolder = IERC721(responseIdToBattle[requestId]._contract).ownerOf(responseIdToBattle[requestId].tokenId);
-            powerlevel = 395 + (randomness % 31) + powerup;
-        }
+            uint256 rumbleId = responseIdToBattle[requestId].battleId;
+            uint256 powerup = 0;
 
-        rumbleIdToRolls[rumbleId].push(
-            RollInfo(
-                responseIdToBattle[requestId].tokenId,
-                responseIdToBattle[requestId]._contract,
-                tokenHolder,
-                randomness,
-                powerlevel
-            )
-        );
-
-        royaleProcessedLink[rumbleId]++;
-
-        if(royaleProcessedLink[rumbleId] == royaleParticipants[rumbleId]){
-            if(royaleParticipants[rumbleId] >= rumbleSize){
-                beginDance(rumbleId, randomness % 10000);
+            if(responseIdToBattle[requestId].juicedUp > 0){
+                powerup = (randomness % (responseIdToBattle[requestId].juicedUp * 9)) + responseIdToBattle[requestId].juicedUp;
             }
-            else if(royaleParticipants[rumbleId] >= minimumSize && block.timestamp - royaleTimeTrigger[rumbleId] >= maxTime){
-                beginDance(rumbleId, randomness % 10000);
+
+            uint256 powerlevel;
+            address tokenHolder;
+            address curHolder;
+
+            if(responseIdToBattle[requestId]._contract == mmAddress){
+                powerlevel = IMaticMike(mmAddress).getPowerLevel(responseIdToBattle[requestId].tokenId) + powerup;
+
+                curHolder = IMaticMike(mmAddress).ownerOf(responseIdToBattle[requestId].tokenId);
+                // check if in gym and assign accordingly
+                if(curHolder != hghAddress && curHolder!= eclAddress){
+                    tokenHolder = curHolder;
+                }
+                else if(curHolder == hghAddress){
+                    tokenHolder = IHgh(hghAddress).getStaker(responseIdToBattle[requestId].tokenId);
+                }
+                else if(curHolder == eclAddress){
+                    tokenHolder = IECL(eclAddress).getStaker(uint16(responseIdToBattle[requestId].tokenId));
+                }
+                
+            }
+            else if(addressHasPowerlevel[responseIdToBattle[requestId]._contract]){
+                powerlevel = IECL(responseIdToBattle[requestId]._contract).getPowerLevel(responseIdToBattle[requestId].tokenId) + powerup;
+
+                curHolder = IECL(responseIdToBattle[requestId]._contract).ownerOf(responseIdToBattle[requestId].tokenId);
+                // check if in gym and assign accordingly
+                if(curHolder != hghAddress){
+                    tokenHolder = curHolder;
+                }
+                else if(curHolder == hghAddress){
+                    tokenHolder = IHgh(hghAddress).expansionGetStaker(responseIdToBattle[requestId]._contract, responseIdToBattle[requestId].tokenId);
+                }
+            }
+            else{
+                tokenHolder = IERC721(responseIdToBattle[requestId]._contract).ownerOf(responseIdToBattle[requestId].tokenId);
+                powerlevel = 395 + (randomness % 31) + powerup;
+            }
+
+            rumbleIdToRolls[rumbleId].push(
+                RollInfo(
+                    responseIdToBattle[requestId].tokenId,
+                    responseIdToBattle[requestId]._contract,
+                    tokenHolder,
+                    randomness,
+                    powerlevel
+                )
+            );
+
+            royaleProcessedLink[rumbleId]++;
+
+            if(royaleProcessedLink[rumbleId] == royaleParticipants[rumbleId]){
+                if(royaleParticipants[rumbleId] >= rumbleSize){
+                    // chainlink call to only begin dance
+                    bytes32 _requestId = requestRandomness(keyHash, fee);
+                    rumbleTriggerId[_requestId] = responseIdToBattle[requestId].battleId;
+                    rumbleHasStarted[responseIdToBattle[requestId].battleId] = true;
+                    rumbleTriggerCallback[_requestId] = true;
+                }
+                else if(royaleParticipants[rumbleId] >= minimumSize && block.timestamp - royaleTimeTrigger[rumbleId] >= maxTime){
+                    // chainlink call to only begin dance
+                    bytes32 _requestId = requestRandomness(keyHash, fee);
+                    rumbleTriggerId[_requestId] = responseIdToBattle[requestId].battleId;
+                    rumbleHasStarted[responseIdToBattle[requestId].battleId] = true;
+                    rumbleTriggerCallback[_requestId] = true;
+                }
             }
         }
     }
@@ -519,8 +534,7 @@ contract DanceOff is VRFConsumerBase, Ownable{
      */
     function beginDance(uint256 rumbleId, uint256 entropy) internal{
         require(!battleIsComplete[rumbleId], "Battle already completed");
-
-        // aka battle is started
+        
         battleIsComplete[rumbleId] = true;
 
         RollInfo memory fpRoll;
@@ -529,7 +543,6 @@ contract DanceOff is VRFConsumerBase, Ownable{
 
         uint256 roll;
 
-        // begin calculations of rolls and set first - third place
         for(uint16 i=0; i<rumbleIdToRolls[rumbleId].length; i++){
             roll = uint256(
                     keccak256(
@@ -592,11 +605,10 @@ contract DanceOff is VRFConsumerBase, Ownable{
             entropy++;
         }
 
-        uint256 totalPot = royalePot[rumbleId];
+        uint256 totalPot = royalePot[rumbleId] - (royalePot[rumbleId] * 1/royalties);
         uint256 tpPayout = totalPot * 1/10;
         uint256 spPayout = totalPot * 2/10;
         uint256 fpPayout = totalPot * 7/10;
-
 
         // we should have a internal struct that saves the top 3 placements
         battleIdToWinners[rumbleId].push(
@@ -637,13 +649,14 @@ contract DanceOff is VRFConsumerBase, Ownable{
         royaleTimeTrigger[_rumbleId.current()] = block.timestamp;
         
         // payout winners
-        IHgh(hghAddress).transfer(tpRoll.holder, tpPayout);
-        IHgh(hghAddress).transfer(spRoll.holder, spPayout);
-        IHgh(hghAddress).transfer(fpRoll.holder, fpPayout);
+        IERC20(tokenAddress).transfer(tpRoll.holder, tpPayout);
+        IERC20(tokenAddress).transfer(spRoll.holder, spPayout);
+        IERC20(tokenAddress).transfer(fpRoll.holder, fpPayout);
+        IERC20(tokenAddress).transfer(owner(), (royalePot[rumbleId] * 1/royalties));
     }
 
     /**
-     * @dev a coin flip function for ties. This is too intricate, we can simplify the coin flip
+     * @dev a coin flip function for ties
      * @param _t token id used in randomness
      * @param _a address of the holder
      * @param _c an nonce used in the coin flip
@@ -665,9 +678,6 @@ contract DanceOff is VRFConsumerBase, Ownable{
             );
     }
 
-
-    // analytics stuff
-
     /**
      * @dev Called by the first entry into the royale
      * @param rumbleId Rumble id of the previous rumble for population
@@ -681,16 +691,6 @@ contract DanceOff is VRFConsumerBase, Ownable{
 
             participant.tokenId = battleIdToWinners[rumbleId][i].tokenId;
             participant._contract = battleIdToWinners[rumbleId][i]._contract;
-
-            if(battleIdToWinners[rumbleId][i].placement == 1){
-                firstPlacements.push(participant);
-            }
-            else if(battleIdToWinners[rumbleId][i].placement == 2){
-                secondPlacements.push(participant);
-            }
-            else if(battleIdToWinners[rumbleId][i].placement == 3){
-                thirdPlacements.push(participant);
-            }
         }
     }
 }
