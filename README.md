@@ -33,4 +33,8 @@ Utilize your Matic Mike NFT & dance your way to victory earning and burning plen
 - Data Contract
     - Polygon: 0x96254353d28b82dA091D7acB2810d9900E414aaD
 - Dance Royale Contract
-    - Polygon: 0x01adffc167e91fC195f64BaEE48182911148950D
+    - Polygon: 0x6d8577cf1aA25325E7863f823198b0fdC368f0BD
+- Token Royale Contract
+    - Polygon: 0xAdD8B24672cCb7862B160f016F9Ec482BEa303f0
+- Dance Analytics
+    - Polygon: 0xD41535a87A3F6E9c036173D70bEe214e726Ddb5b
