@@ -1,3 +1,24 @@
+# Mojo Questing
+
+This is the first draft and updates will follow for gas efficiency and small modifications in the logic. The Matic Mike & ECL Data contracts are going to be slightly modified and repopulated with data. The MoJo boosters are base64 encoded gifs that the SVG tags need to account for, and we may want to eventually replace the drawn SVGs on Matic Mike and ECLs to base64 encoded pngs as it is more efficient and easier for future releases.
+
+## The way it works
+
+Your Matic Mike NFT OR Evil Club Lord will accompany another Evil Club Lord to start a quest to 1 of 6 clubs to receive a permanent MoJo boost. Each club requires the max MoJo boost from the previous club, leading to repetition of the quests and lots of $HGH burn.
+
+Matic Mikes can enter the club 5 times a day where Evil Club Lords can only enter once per day.
+
+The combination of entrants can look something like this...
+
+>1 Matic Mike x 1 Evil Club Lord<br>
+>1 Evil Club Lord x 1 Evil Club Lord
+
+Only the first selection will require the minimum MoJo boost, but the evil club lord that accompanies them has a 50% chance of stealing the reward. This means it is possible to power level an evil club lord from +0 MoJo boost to +20 MoJo boost in one single entry into Club 69.
+
+When you obtain a MoJo booster, it will not only add that amount to your overall powerlevel, it will add a trait that signifies the boost, as well as an animated hue that represents the power of the MoJo.
+
+These MoJo boosters will have more utility over time, but for the time being, they are really meant to help in having better odds to win the MoJo from the evil club lord accompanying them, as well as increase the rarity of your NFT with a cool background.
+
 # Matic Mike Club
 
 [https://maticmike.club](https://maticmike.club)
